@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DSA Tracker</title>
+    <link rel="stylesheet" href="popup.css" />
+    <style>
+      html,
+      body {
+        width: 480px !important;
+        min-width: 480px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow-x: hidden !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Header -->
+      <div class="header">
+        <div class="header-content">
+          <div class="logo">
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <polyline
+                points="12 3 20 7.5 20 16.5 12 21 4 16.5 4 7.5 12 3"
+              ></polyline>
+              <line x1="12" y1="12" x2="20" y2="7.5"></line>
+              <line x1="12" y1="12" x2="12" y2="21"></line>
+              <line x1="12" y1="12" x2="4" y2="7.5"></line>
+            </svg>
+            <h1>DSA Tracker</h1>
+          </div>
+          <span class="close-btn" id="closeBtn">✕</span>
+        </div>
+        <p class="subtitle">Capture your coding success</p>
+      </div>
+
+      <!-- Setup State -->
+      <div class="setup-state" id="setupState" style="display: none">
+        <h2>Initial Setup</h2>
+        <p>Enter your Codeforces handle</p>
+        <input type="text" id="cfHandleInput" placeholder="e.g. tourist" />
+        <button class="btn-primary" id="saveHandleBtn">Save</button>
+      </div>
+
+      <!-- Loading State -->
+      <div class="loading-state" id="loadingState">
+        <div class="spinner"></div>
+        <p>Analyzing problem...</p>
+      </div>
+
+      <!-- Error State -->
+      <div class="error-state" id="errorState" style="display: none">
+        <div class="error-icon">⚠️</div>
+        <p class="error-message" id="errorMessage"></p>
+        <button class="btn-secondary" id="retryBtn">Retry</button>
+      </div>
+
+      <!-- Success State -->
+      <div class="success-state" id="successState" style="display: none">
+        <div class="success-icon">✓</div>
+        <h2>Added to DSA Tracker!</h2>
+        <p id="successMessage"></p>
+        <button class="btn-primary" id="closeSuccessBtn">Done</button>
+      </div>
+
+      <!-- Form -->
+      <form id="problemForm" class="form">
+        <!-- Problem Name -->
+        <div class="form-group">
+          <label for="problemName">Problem Name *</label>
+          <input
+            type="text"
+            id="problemName"
+            name="problemName"
+            placeholder="e.g., Two Sum"
+            required
+          />
+        </div>
+
+        <!-- Platform & Link (Row) -->
+        <div class="form-row">
+          <div class="form-group half">
+            <label for="platform">Platform *</label>
+            <select id="platform" name="platform" required>
+              <option value="leetcode">LeetCode</option>
+              <option value="codeforces">Codeforces</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div class="form-group half">
+            <label for="problemLink">Problem Link</label>
+            <input
+              type="url"
+              id="problemLink"
+              name="problemLink"
+              placeholder="https://..."
+            />
+          </div>
+        </div>
+
+        <!-- Difficulty (Row) -->
+        <div class="form-row">
+          <div class="form-group half">
+            <label for="difficulty">Platform Difficulty *</label>
+            <select id="difficulty" name="difficulty" required>
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+          </div>
+
+          <div class="form-group half">
+            <label for="userDifficulty">Your Rating *</label>
+            <select id="userDifficulty" name="userDifficulty" required>
+              <option value="easy">Easy for me</option>
+              <option value="medium">Medium for me</option>
+              <option value="hard">Hard for me</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Status -->
+        <div class="form-group">
+          <label>Status *</label>
+          <div class="radio-group">
+            <label class="radio-label">
+              <input type="radio" name="status" value="solved" checked />
+              <span class="radio-custom"></span>
+              Solved
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="status" value="attempted" />
+              <span class="radio-custom"></span>
+              Attempted
+            </label>
+          </div>
+        </div>
+
+        <!-- Remarks -->
+        <div class="form-group">
+          <label for="remarks">Remarks (Optional)</label>
+          <textarea
+            id="remarks"
+            name="remarks"
+            placeholder="Your approach, key insights, challenges..."
+            rows="3"
+          ></textarea>
+        </div>
+
+        <!-- Tags -->
+        <div class="form-group">
+          <label for="tags">Tags (Optional)</label>
+          <input
+            type="text"
+            id="tags"
+            name="tags"
+            placeholder="e.g., array, hash-map, two-pointer (comma-separated)"
+          />
+        </div>
+
+        <!-- Revision Checkbox -->
+        <div class="form-group checkbox-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="needsRevision" name="needsRevision" />
+            <span class="checkbox-custom"></span>
+            <span class="checkbox-text">Mark for interview revision</span>
+          </label>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" class="btn-submit">
+          <span class="btn-icon">+</span>
+          Add to DSA Tracker
+        </button>
+      </form>
+
+      <!-- Footer -->
+      <div class="footer">
+        <p class="footer-text">
+          <span class="footer-icon">📊</span>
+          View your progress in the DSA Tracker app
+        </p>
+      </div>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

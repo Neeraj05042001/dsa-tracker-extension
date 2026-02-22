@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "DSA Tracker",
+  "version": "1.0.0",
+  "description": "Auto-track your coding journey on LeetCode & Codeforces with instant problem logging",
+
+  "permissions": [
+    "storage",
+    "tabs",
+    "activeTab",
+    "scripting",
+    "webRequest",
+    "webNavigation"
+  ],
+
+  "host_permissions": [
+    "https://leetcode.com/*",
+    "https://codeforces.com/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "DSA Tracker - Log Your Problems",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "128": "icons/icon128.png"
+    }
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["https://leetcode.com/*", "*://codeforces.com/*"],
+      "js": ["contentScript.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
+
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "128": "icons/icon128.png"
+  },
+
+  "web_accessible_resources": []
+}
