@@ -17,7 +17,7 @@ export class TrackingEngine {
 
     console.log("[Engine] Using adapter:", adapter.name);
 
-    const status = await adapter.poll(submissionId);
+    const status = await adapter.poll(submissionId, meta);
 
     if (status !== "Accepted") return;
 

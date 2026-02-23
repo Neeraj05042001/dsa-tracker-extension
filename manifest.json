@@ -31,7 +31,10 @@
 
   "content_scripts": [
     {
-      "matches": ["https://leetcode.com/*", "*://codeforces.com/*"],
+      "matches": [
+        "https://leetcode.com/*",
+        "*://codeforces.com/*"
+      ],
       "js": ["contentScript.js"],
       "run_at": "document_start",
       "all_frames": false
@@ -39,8 +42,7 @@
   ],
 
   "background": {
-    "service_worker": "background.js",
-    "type": "module"
+    "service_worker": "background.js"
   },
 
   "icons": {
