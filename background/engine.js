@@ -4,44 +4,77 @@ export class TrackingEngine {
   }
 
   getAdapter(url) {
-    return this.adapters.find(adapter => adapter.detect(url));
+    const adapter = this.adapters.find((adapter) => adapter.detect(url));
+    console.log("[Engine] Adapter lookup for:", url, "→", adapter?.name);
+    return adapter;
   }
 
   async handleSubmission(tab, submissionId, meta) {
     const adapter = this.getAdapter(tab.url);
 
     if (!adapter) {
-      console.warn("[Engine] No adapter for:", tab.url);
+      console.warn("[Engine] No adapter found for URL:", tab.url);
       return;
     }
 
     console.log("[Engine] Using adapter:", adapter.name);
+    console.log("[Engine] Starting verdict poll for submission:", submissionId);
 
-    const status = await adapter.poll(submissionId, meta);
+    try {
+      const status = await adapter.poll(submissionId, meta, tab.id);
 
-    if (status !== "Accepted") return;
+      console.log("[Engine] Final verdict:", status);
 
-    const normalized = adapter.normalize(meta, submissionId, status);
+      if (!status || status.toLowerCase() !== "accepted") {
+        console.log("[Engine] Not accepted, skipping storage:", status);
+        return;
+      }
 
-    await this.storeSolved(normalized);
-    await this.updateBadge();
+      const normalized = adapter.normalize(meta, submissionId, status);
+
+      await this.storeSolved(normalized);
+      await this.updateBadge();
+
+      chrome.windows.create({
+        url: "popup.html",
+        type: "popup",
+        width: 420,
+        height: 600,
+      });
+
+      await this.notifyPopup(normalized);
+
+    } catch (error) {
+      console.error("[Engine] Error in handleSubmission:", error);
+    }
   }
 
   async storeSolved(data) {
-    const { solvedSubmissions = {} } =
-      await chrome.storage.local.get(["solvedSubmissions"]);
+    const storage = await chrome.storage.local.get(["solvedSubmissions"]);
+    const solvedSubmissions = storage.solvedSubmissions || {};
 
-    if (solvedSubmissions[data.problemKey]) return;
+    if (solvedSubmissions[data.problemKey]) {
+      console.log("[Engine] Already stored:", data.problemKey);
+      return;
+    }
 
     solvedSubmissions[data.problemKey] = data;
 
     await chrome.storage.local.set({ solvedSubmissions });
+    await chrome.storage.local.set({ latestAccepted: data });
 
-    console.log("[Engine] Stored:", data.problemKey);
+    console.log("[Engine] Stored solved submission:", data.problemKey);
   }
 
   async updateBadge() {
     chrome.action.setBadgeText({ text: "✓" });
-    chrome.action.setBadgeBackgroundColor({ color: "#16a34a" });
+    chrome.action.setBadgeBackgroundColor({ color: "#00c853" });
+  }
+
+  async notifyPopup(data) {
+    chrome.runtime.sendMessage({
+      action: "submissionAccepted",
+      data: data,
+    }).catch(() => {});
   }
 }

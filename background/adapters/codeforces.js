@@ -1,162 +1,129 @@
-// ==================== CODEFORCES ADAPTER ====================
-// Event: Content script detects submission
-// Poll: Background polls submission until verdict is stable
-// Normalize: Format data for storage
-
 export const codeforcesAdapter = {
   name: "codeforces",
 
-  // ✅ Detect ALL Codeforces URLs
   detect(url) {
     return url.includes("codeforces.com");
   },
 
-  // ✅ POLL SUBMISSION VERDICT with robust HTML parsing
   async poll(submissionId, meta, tabId) {
-    const POLLING_TIMEOUT = 120000; // 2 minutes for slow Codeforces
-    const POLL_INTERVAL = 2000; // Check every 2 seconds
+    const POLLING_TIMEOUT = 120000;
+    const POLL_INTERVAL = 2000;
     const startTime = Date.now();
+    const { contestId, groupId } = meta;
 
-    const submissionUrl = meta.submissionUrl;
+    let lastStatus = null; // 👈 this was missing, causing the crash
 
-    console.log(
-      "[Codeforces Adapter] Starting poll:",
-      submissionUrl,
-      "Submission ID:",
-      submissionId,
-    );
+    const handleResponse = await chrome.tabs.sendMessage(tabId, {
+      type: "GET_HANDLE",
+    });
+    const handle = handleResponse?.handle;
 
-    let lastStatus = null;
-    let statusUnchangedCount = 0;
+    if (!handle) {
+      console.error("[Codeforces Adapter] Could not get handle");
+      return "Error";
+    }
 
     while (Date.now() - startTime < POLLING_TIMEOUT) {
       try {
-        const response = await chrome.tabs.sendMessage(tabId, {
-          type: "FETCH_HTML",
-          url: submissionUrl,
+        // Try DOM first (instant, no API needed)
+        const domResponse = await chrome.tabs.sendMessage(tabId, {
+          type: "GET_VERDICT_FROM_DOM",
+          submissionId,
         });
 
-        if (!response?.html) {
+        if (domResponse?.verdict) {
+          const verdict = domResponse.verdict;
+          if (
+            verdict !== "In queue" &&
+            !verdict.toLowerCase().includes("running")
+          ) {
+            console.log("[Codeforces Adapter] Got verdict from DOM:", verdict);
+            return verdict;
+          }
+        }
+
+        // Fall back to API if DOM doesn't have it yet
+        // For group contests, use gym endpoint or user.status instead
+        const apiUrl = groupId
+          ? `https://codeforces.com/api/user.status?handle=${handle}&count=50` // 👈 was 10
+          : `https://codeforces.com/api/contest.status?contestId=${contestId}&handle=${handle}&count=50`;
+
+        console.log("[DEBUG] Fetching:", apiUrl);
+        const response = await fetch(apiUrl);
+        const data = await response.json();
+
+        if (data.status !== "OK") {
+          console.warn("[DEBUG] API failed:", data.comment);
           await this.sleep(POLL_INTERVAL);
           continue;
         }
 
-        const html = await response.text();
-        const status = this.extractVerdictFromHTML(html);
-
-        console.log(
-          "[Codeforces Adapter] Poll result:",
-          status,
-          "at",
-          new Date().toLocaleTimeString(),
+        // Find our specific submission by ID
+        const submission = data.result.find(
+          (s) => String(s.id) === String(submissionId),
         );
 
-        // If no status found, continue polling
-        if (!status) {
+        if (!submission) {
+          console.warn("[DEBUG] Submission not found in results yet");
           await this.sleep(POLL_INTERVAL);
           continue;
         }
 
-        // If status is still processing, continue
-        if (
-          status === "In queue" ||
-          status === "Running" ||
-          status === "Compiling"
-        ) {
-          lastStatus = status;
-          statusUnchangedCount = 0;
+        const verdict = submission.verdict;
+        console.log("[DEBUG] Verdict from API:", verdict);
+
+        if (!verdict || verdict === "TESTING") {
           await this.sleep(POLL_INTERVAL);
           continue;
         }
 
-        // Status has changed to something final
-        // (Accepted, Wrong Answer, Runtime Error, etc.)
-        if (status === lastStatus) {
-          statusUnchangedCount++;
-        } else {
-          statusUnchangedCount = 0;
-        }
+        const verdictMap = {
+          OK: "Accepted",
+          WRONG_ANSWER: "Wrong answer",
+          TIME_LIMIT_EXCEEDED: "Time limit exceeded",
+          MEMORY_LIMIT_EXCEEDED: "Memory limit exceeded",
+          RUNTIME_ERROR: "Runtime error",
+          COMPILATION_ERROR: "Compilation error",
+          IDLENESS_LIMIT_EXCEEDED: "Idleness limit exceeded",
+        };
 
-        lastStatus = status;
-
-        // If verdict unchanged for 2 consecutive polls, it's stable
-        if (statusUnchangedCount >= 1) {
-          console.log("[Codeforces Adapter] ✅ Verdict stable:", status);
-          return status;
-        }
-
-        await this.sleep(POLL_INTERVAL);
+        return verdictMap[verdict] || verdict;
       } catch (err) {
-        console.error("[Codeforces Adapter] Fetch error:", err.message);
+        console.error("[Codeforces Adapter] API error:", err.message);
         await this.sleep(POLL_INTERVAL);
       }
     }
 
-    console.log("[Codeforces Adapter] ⏱️ Polling timeout reached");
     return lastStatus || "Timeout";
   },
-
-  // ✅ EXTRACT VERDICT from Codeforces HTML
-  // Multiple fallback strategies for robustness
-  extractVerdictFromHTML(html) {
-    // Strategy 1: Look for submissionVerdict element with class
-    // Example: <span class="verdict-accepted">Accepted</span>
-    // or <span class="verdict-wrong-answer">Wrong answer</span>
-    let match = html.match(
-      /<span[^>]*class="verdict-([^"]+)"[^>]*>([^<]+)<\/span>/,
+  extractVerdictFromHTML(html, submissionId) {
+    // Find the table row containing the submission ID, then extract verdict span text
+    const rowMatch = html.match(
+      new RegExp(
+        `<tr[^>]*data-submission-id="${submissionId}"[^>]*>([\\s\\S]*?)<\\/tr>`,
+      ),
     );
-    if (match) {
-      const verdictClass = match[1];
-      const verdictText = match[2].trim();
-      console.log(
-        "[Codeforces Adapter] Found via class-based verdict:",
-        verdictText,
-      );
-      return verdictText;
-    }
 
-    // Strategy 2: Look for submissionVerdict wrapper
-    // Example: <div id="submissionVerdictWrapper" ...>
-    //            <span>Accepted</span>
-    match = html.match(
-      /submissionVerdictWrapper[^>]*>[\s\S]*?<span[^>]*>([^<]+)<\/span>/,
+    const searchArea = rowMatch ? rowMatch[1] : html;
+
+    // Extract the text inside any verdict-* span
+    const verdictMatch = searchArea.match(
+      /<span[^>]*class="[^"]*verdict-[^"]*"[^>]*>([\s\S]*?)<\/span>/,
     );
-    if (match) {
-      const verdict = match[1].trim();
-      console.log("[Codeforces Adapter] Found via verdict wrapper:", verdict);
-      return verdict;
-    }
 
-    // Strategy 3: Direct text search for common verdicts
-    // (for group contests where HTML structure might differ)
-    const verdictPatterns = [
-      { text: "Accepted", pattern: /accepted/i },
-      { text: "Wrong answer", pattern: /wrong\s*answer/i },
-      { text: "Time limit exceeded", pattern: /time\s*limit\s*exceeded/i },
-      { text: "Memory limit exceeded", pattern: /memory\s*limit\s*exceeded/i },
-      { text: "Runtime error", pattern: /runtime\s*error/i },
-      { text: "Compilation error", pattern: /compilation\s*error/i },
-      { text: "Idleness limit exceeded", pattern: /idleness/i },
-      { text: "In queue", pattern: /in\s*queue/i },
-      { text: "Running", pattern: /^running$/i },
-      { text: "Compiling", pattern: /compiling/i },
-    ];
-
-    for (const { text, pattern } of verdictPatterns) {
-      if (pattern.test(html)) {
-        console.log("[Codeforces Adapter] Found via text search:", text);
-        return text;
+    if (verdictMatch) {
+      // Strip any inner HTML tags (e.g. nested spans) and get plain text
+      const raw = verdictMatch[1].replace(/<[^>]+>/g, "").trim();
+      if (raw) {
+        console.log("[Codeforces Adapter] Verdict found:", raw);
+        return raw;
       }
     }
 
-    // No verdict found yet
     return null;
   },
 
-  // ✅ NORMALIZE Codeforces submission data
-  // Convert to standard format for storage
   normalize(meta, submissionId, status) {
-    // Create unique problem key for deduplication
     const problemKey = `codeforces-${meta.contestId}-${meta.problemIndex}`;
 
     const normalized = {
@@ -179,7 +146,6 @@ export const codeforcesAdapter = {
     return normalized;
   },
 
-  // ✅ UTILITY: Sleep function
   sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   },

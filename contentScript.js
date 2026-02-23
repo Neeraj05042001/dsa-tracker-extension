@@ -7,8 +7,6 @@ if (document.readyState === "loading") {
   init();
 }
 
-setTimeout(init, 1000);
-
 function init() {
   if (window.location.hostname.includes("codeforces.com")) {
     console.log("[DSA Tracker] Codeforces detected");
@@ -83,13 +81,13 @@ function handleDirectSubmissionPage() {
 
     console.log(
       "[DSA Tracker] Submission page data extracted:",
-      submissionData,
+      submissionData
     );
     sendCodeforcesSubmission(submissionData);
   } catch (error) {
     console.error(
       "[DSA Tracker] Error extracting submission page data:",
-      error,
+      error
     );
   }
 }
@@ -103,7 +101,6 @@ function watchSubmissionsTable() {
 
   const observer = new MutationObserver(() => {
     try {
-      // Find all rows with data-submission-id attribute
       const rows = document.querySelectorAll("tr[data-submission-id]");
 
       if (rows.length === 0) {
@@ -113,10 +110,9 @@ function watchSubmissionsTable() {
       console.log(
         "[DSA Tracker] Found",
         rows.length,
-        "submission rows in table",
+        "submission rows in table"
       );
 
-      // Process first row (newest submission)
       const firstRow = rows[0];
       const submissionId = firstRow.getAttribute("data-submission-id");
 
@@ -127,14 +123,12 @@ function watchSubmissionsTable() {
 
       console.log("[DSA Tracker] Processing submission:", submissionId);
 
-      // Skip if already processed
       if (processedSubmissions.has(submissionId)) {
         return;
       }
 
       processedSubmissions.add(submissionId);
 
-      // Extract problem link
       const problemLink = firstRow.querySelector("a[href*='/problem/']");
       if (!problemLink) {
         console.log("[DSA Tracker] No problem link found in row");
@@ -147,17 +141,14 @@ function watchSubmissionsTable() {
       console.log("[DSA Tracker] Problem URL:", problemUrl);
       console.log("[DSA Tracker] Problem text:", problemText);
 
-      // Extract problem index
       const problemMatch = problemUrl.match(/\/problem\/([A-Z]\d*)/);
       const problemIndex = problemMatch ? problemMatch[1] : "?";
 
-      // Extract problem name (remove "G - " prefix)
       const problemName = problemText.replace(/^[A-Z]\d*[\s\-]+/, "").trim();
 
       console.log("[DSA Tracker] Problem index:", problemIndex);
       console.log("[DSA Tracker] Problem name:", problemName);
 
-      // Get contest ID from page URL
       const url = new URL(window.location.href);
       const pathParts = url.pathname.split("/").filter(Boolean);
       const contestIndex = pathParts.indexOf("contest");
@@ -166,7 +157,6 @@ function watchSubmissionsTable() {
 
       console.log("[DSA Tracker] Contest ID:", contestId);
 
-      // Build submission URL
       let submissionUrl = window.location.href;
       if (contestId && submissionId) {
         submissionUrl = `https://codeforces.com/contest/${contestId}/submission/${submissionId}`;
@@ -174,7 +164,6 @@ function watchSubmissionsTable() {
 
       console.log("[DSA Tracker] Submission URL:", submissionUrl);
 
-      // Get submission time
       let submissionTime = new Date().toISOString();
       const timeCells = firstRow.querySelectorAll("td");
       for (let td of timeCells) {
@@ -188,7 +177,6 @@ function watchSubmissionsTable() {
       const groupIndex = pathParts.indexOf("group");
       const groupId = groupIndex !== -1 ? pathParts[groupIndex + 1] : null;
 
-      // Send to background
       const submissionData = {
         submissionId,
         contestId,
@@ -216,10 +204,10 @@ function watchSubmissionsTable() {
   console.log("[DSA Tracker] Table observer started");
 }
 
-// ==================== SEND TO BACKGROUND ====================
+// ==================== SEND CODEFORCES SUBMISSION ====================
 
 function sendCodeforcesSubmission(submissionData) {
-  console.log("[DSA Tracker] Sending message to background...");
+  console.log("[DSA Tracker] Sending Codeforces submission to background...");
 
   chrome.runtime
     .sendMessage({
@@ -244,84 +232,81 @@ function sendCodeforcesSubmission(submissionData) {
 // ================= LEETCODE LOGIC =====================
 // ========================================================
 
-let currentMeta = null;
-
 function handleLeetCode() {
-  if (window.location.pathname.startsWith("/problems/")) {
-    extractLeetCodeMeta();
+  // Inject the hook script that intercepts GraphQL
+  if (!window.__DSA_LEETCODE_HOOK__) {
+    injectLeetCodeHook();
+    window.__DSA_LEETCODE_HOOK__ = true;
   }
 
+  function injectLeetCodeHook() {
+    const script = document.createElement("script");
+    script.src = chrome.runtime.getURL("leetcodeHook_IMPROVED.js");
+    script.type = "text/javascript";
+    document.documentElement.appendChild(script);
+    script.remove();
+    console.log("[DSA Tracker] LeetCode hook injected");
+  }
+
+  // Listen for messages from the injected hook script
   window.addEventListener("message", (event) => {
     if (event.source !== window) return;
 
+    // Message from leetcodeHook.js
     if (
       event.data?.source === "DSA_TRACKER" &&
-      event.data?.type === "LEETCODE_SUBMISSION"
+      event.data?.type === "LEETCODE_ACCEPTED"
     ) {
-      console.log("[DSA Tracker] LeetCode submission detected");
+      console.log("[DSA Tracker] Received LEETCODE_ACCEPTED message from hook");
+      console.log("[DSA Tracker] Submission data:", event.data.submissionData);
 
+      // Send to background script with complete submission data
       chrome.runtime
         .sendMessage({
-          type: "LEETCODE_SUBMISSION",
-          submissionId: event.data.submissionId,
-          meta: currentMeta,
+          type: "LEETCODE_ACCEPTED",
+          submissionId: event.data.submissionData?.submissionId,
+          submissionData: event.data.submissionData, // Send complete data
+          meta: {
+            platform: "leetcode",
+            problemName: event.data.submissionData?.problem?.title,
+            titleSlug: event.data.submissionData?.problem?.titleSlug,
+            difficulty: event.data.submissionData?.problem?.difficulty,
+            problemUrl: event.data.submissionData?.problem?.problemUrl,
+            submissionUrl: event.data.submissionData?.submissionUrl,
+            runtime: event.data.submissionData?.runtime,
+            memory: event.data.submissionData?.memory,
+            language: event.data.submissionData?.language,
+            timestamp: event.data.submissionData?.timestamp,
+          },
         })
         .catch((err) => {
-          console.error(
-            "[DSA Tracker] Error sending LeetCode submission:",
-            err,
-          );
+          console.error("[DSA Tracker] Error sending message to background:", err);
         });
     }
   });
+
+  console.log("[DSA Tracker] LeetCode handler initialized");
 }
 
-function extractLeetCodeMeta() {
-  const slugMatch = window.location.pathname.match(/\/problems\/([^/]+)/);
-  if (!slugMatch) return;
+// ==================== MESSAGE HANDLERS ====================
 
-  const titleSlug = slugMatch[1];
-  const titleElement = document.querySelector("div[data-cy='question-title']");
-  const difficultyElement = document.querySelector(
-    "div[class*='text-difficulty']",
-  );
-
-  const problemName = titleElement
-    ? titleElement.textContent.trim()
-    : document.title;
-
-  const difficulty = difficultyElement
-    ? difficultyElement.textContent.toLowerCase()
-    : "medium";
-
-  currentMeta = {
-    platform: "leetcode",
-    titleSlug,
-    problemName,
-    difficulty,
-  };
-
-  console.log("[DSA Tracker] LeetCode meta extracted:", currentMeta);
-}
-
-// In content.js fetch listener
-// Add this at the bottom of content.js (replacing the broken floating code)
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === "GET_HANDLE") {
-    const handleEl = 
+    const handleEl =
       document.querySelector("a.header-bell-username") ||
       document.querySelector(".lang-chooser a[href*='/profile/']") ||
       document.querySelector("#header a[href*='/profile/']");
-    
+
     const handle = handleEl?.textContent?.trim() || null;
     console.log("[DSA Tracker] Handle found:", handle);
     sendResponse({ handle });
     return true;
   }
 
-  // 👇 Add it right here, inside the same listener
   if (request.type === "GET_VERDICT_FROM_DOM") {
-    const row = document.querySelector(`tr[data-submission-id="${request.submissionId}"]`);
+    const row = document.querySelector(
+      `tr[data-submission-id="${request.submissionId}"]`
+    );
     const span = row?.querySelector("span[class*='verdict-']");
     const verdict = span?.textContent?.trim() || null;
     console.log("[DSA Tracker] DOM verdict:", verdict);

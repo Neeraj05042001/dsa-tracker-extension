@@ -31,10 +31,7 @@
 
   "content_scripts": [
     {
-      "matches": [
-        "https://leetcode.com/*",
-        "*://codeforces.com/*"
-      ],
+      "matches": ["https://leetcode.com/*", "*://codeforces.com/*"],
       "js": ["contentScript.js"],
       "run_at": "document_start",
       "all_frames": false
@@ -42,7 +39,8 @@
   ],
 
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
 
   "icons": {
@@ -50,5 +48,10 @@
     "128": "icons/icon128.png"
   },
 
-  "web_accessible_resources": []
+  "web_accessible_resources": [
+    {
+      "resources": ["leetcodeHook_IMPROVED.js"],
+      "matches": ["https://leetcode.com/*"]
+    }
+  ]
 }
