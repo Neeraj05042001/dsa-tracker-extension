@@ -5,13 +5,41 @@ export const codeforcesAdapter = {
     return url.includes("codeforces.com");
   },
 
+  // ==================== FETCH PROBLEM METADATA ====================
+  async fetchProblemMeta(contestId, problemIndex) {
+    try {
+      // Only works for standard contests, not group contests
+      const url = `https://codeforces.com/api/contest.standings?contestId=${contestId}&from=1&count=1&showUnofficial=false`;
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.status !== "OK") return null;
+
+      const problems = data.result?.problems || [];
+      const problem = problems.find((p) => p.index === problemIndex);
+
+      if (!problem) return null;
+
+      return {
+        rating: problem.rating || null,
+        tags: problem.tags || [],
+        name: problem.name || null,
+      };
+    } catch (err) {
+      console.warn(
+        "[Codeforces Adapter] Could not fetch problem meta:",
+        err.message,
+      );
+      return null;
+    }
+  },
+
+  // ==================== POLL FOR VERDICT ====================
   async poll(submissionId, meta, tabId) {
     const POLLING_TIMEOUT = 120000;
     const POLL_INTERVAL = 2000;
     const startTime = Date.now();
     const { contestId, groupId } = meta;
-
-    let lastStatus = null; // 👈 this was missing, causing the crash
 
     const handleResponse = await chrome.tabs.sendMessage(tabId, {
       type: "GET_HANDLE",
@@ -25,7 +53,7 @@ export const codeforcesAdapter = {
 
     while (Date.now() - startTime < POLLING_TIMEOUT) {
       try {
-        // Try DOM first (instant, no API needed)
+        // Try DOM first (fastest)
         const domResponse = await chrome.tabs.sendMessage(tabId, {
           type: "GET_VERDICT_FROM_DOM",
           submissionId,
@@ -37,44 +65,47 @@ export const codeforcesAdapter = {
             verdict !== "In queue" &&
             !verdict.toLowerCase().includes("running")
           ) {
-            console.log("[Codeforces Adapter] Got verdict from DOM:", verdict);
+            console.log("[Codeforces Adapter] DOM verdict:", verdict);
             return verdict;
           }
         }
 
-        // Fall back to API if DOM doesn't have it yet
-        // For group contests, use gym endpoint or user.status instead
+        // Fall back to API
         const apiUrl = groupId
-          ? `https://codeforces.com/api/user.status?handle=${handle}&count=50` // 👈 was 10
+          ? `https://codeforces.com/api/user.status?handle=${handle}&count=50`
           : `https://codeforces.com/api/contest.status?contestId=${contestId}&handle=${handle}&count=50`;
 
-        console.log("[DEBUG] Fetching:", apiUrl);
         const response = await fetch(apiUrl);
         const data = await response.json();
 
         if (data.status !== "OK") {
-          console.warn("[DEBUG] API failed:", data.comment);
           await this.sleep(POLL_INTERVAL);
           continue;
         }
 
-        // Find our specific submission by ID
         const submission = data.result.find(
           (s) => String(s.id) === String(submissionId),
         );
 
         if (!submission) {
-          console.warn("[DEBUG] Submission not found in results yet");
           await this.sleep(POLL_INTERVAL);
           continue;
         }
 
         const verdict = submission.verdict;
-        console.log("[DEBUG] Verdict from API:", verdict);
-
         if (!verdict || verdict === "TESTING") {
           await this.sleep(POLL_INTERVAL);
           continue;
+        }
+
+        // If we have problem data in the submission, store it for normalize()
+        if (submission.problem) {
+          this._lastProblemMeta = {
+            rating: submission.problem.rating || null,
+            tags: submission.problem.tags || [],
+            name: submission.problem.name || null,
+            language: submission.programmingLanguage || null,
+          };
         }
 
         const verdictMap = {
@@ -89,60 +120,62 @@ export const codeforcesAdapter = {
 
         return verdictMap[verdict] || verdict;
       } catch (err) {
-        console.error("[Codeforces Adapter] API error:", err.message);
+        console.error("[Codeforces Adapter] Poll error:", err.message);
         await this.sleep(POLL_INTERVAL);
       }
     }
 
-    return lastStatus || "Timeout";
+    return "Timeout";
   },
-  extractVerdictFromHTML(html, submissionId) {
-    // Find the table row containing the submission ID, then extract verdict span text
-    const rowMatch = html.match(
-      new RegExp(
-        `<tr[^>]*data-submission-id="${submissionId}"[^>]*>([\\s\\S]*?)<\\/tr>`,
-      ),
-    );
 
-    const searchArea = rowMatch ? rowMatch[1] : html;
+  // ==================== NORMALIZE ====================
+  async normalize(meta, submissionId, status) {
+    // Try to get problem meta — from poll cache first, then API
+    let problemMeta = this._lastProblemMeta || null;
 
-    // Extract the text inside any verdict-* span
-    const verdictMatch = searchArea.match(
-      /<span[^>]*class="[^"]*verdict-[^"]*"[^>]*>([\s\S]*?)<\/span>/,
-    );
-
-    if (verdictMatch) {
-      // Strip any inner HTML tags (e.g. nested spans) and get plain text
-      const raw = verdictMatch[1].replace(/<[^>]+>/g, "").trim();
-      if (raw) {
-        console.log("[Codeforces Adapter] Verdict found:", raw);
-        return raw;
-      }
+    // If no cached meta and it's a standard contest, fetch from API
+    if (!problemMeta && meta.contestId && !meta.groupId) {
+      problemMeta = await this.fetchProblemMeta(
+        meta.contestId,
+        meta.problemIndex,
+      );
     }
 
-    return null;
-  },
+    console.log("[Codeforces Adapter] Problem meta:", problemMeta);
 
-  normalize(meta, submissionId, status) {
-    const problemKey = `codeforces-${meta.contestId}-${meta.problemIndex}`;
+    const cfRating = problemMeta?.rating || null;
+
+    // Convert CF rating to difficulty band
+    let difficulty = null;
+    if (cfRating) {
+      if (cfRating < 1200) difficulty = "easy";
+      else if (cfRating < 1900) difficulty = "medium";
+      else difficulty = "hard";
+    }
 
     const normalized = {
       platform: "codeforces",
-      problemKey: problemKey,
+      problemKey: `codeforces-${meta.contestId}-${meta.problemIndex}`,
       submissionId: submissionId,
       contestId: meta.contestId,
       problemIndex: meta.problemIndex,
-      problemName: meta.problemName,
+      problemName: problemMeta?.name || meta.problemName,
       problemUrl: meta.problemUrl,
       submissionUrl: meta.submissionUrl,
       submissionTime: meta.submissionTime || new Date().toISOString(),
       status: status,
       solvedAt: new Date().toISOString(),
-      difficulty: meta.difficulty || null,
-      language: meta.language || null,
+      difficulty: difficulty,
+      cfRating: cfRating,
+      tags: problemMeta?.tags || [],
+      language: meta.language || problemMeta?.language || null,
     };
 
     console.log("[Codeforces Adapter] Normalized:", normalized);
+
+    // Clear cached meta
+    this._lastProblemMeta = null;
+
     return normalized;
   },
 

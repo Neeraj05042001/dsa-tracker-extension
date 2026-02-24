@@ -1,18 +1,14 @@
-// ==================== POPUP SCRIPT - OPTIMIZED ====================
-
-console.log("[DSA Tracker Popup] Popup script loaded");
+// ==================== POPUP SCRIPT ====================
+console.log("[DSA Tracker Popup] Script loaded");
 
 // ==================== STATE ====================
-
-let problemData = {};
 let isSubmitting = false;
+let currentSubmission = null;
 
 // ==================== DOM ELEMENTS ====================
 const setupState = document.getElementById("setupState");
 const cfHandleInput = document.getElementById("cfHandleInput");
 const saveHandleBtn = document.getElementById("saveHandleBtn");
-
-// --------------
 
 const form = document.getElementById("problemForm");
 const problemNameInput = document.getElementById("problemName");
@@ -20,9 +16,11 @@ const platformSelect = document.getElementById("platform");
 const problemLinkInput = document.getElementById("problemLink");
 const difficultySelect = document.getElementById("difficulty");
 const userDifficultySelect = document.getElementById("userDifficulty");
-const statusRadios = document.getElementsByName("status");
-const remarksTextarea = document.getElementById("remarks");
 const tagsInput = document.getElementById("tags");
+const approachTextarea = document.getElementById("approach");
+const mistakesTextarea = document.getElementById("mistakes");
+const similarProblemsInput = document.getElementById("similarProblems");
+const patternSelect = document.getElementById("pattern");
 const needsRevisionCheckbox = document.getElementById("needsRevision");
 const closeBtn = document.getElementById("closeBtn");
 
@@ -31,194 +29,148 @@ const errorState = document.getElementById("errorState");
 const errorMessage = document.getElementById("errorMessage");
 const successState = document.getElementById("successState");
 const successMessage = document.getElementById("successMessage");
-
 const closeSuccessBtn = document.getElementById("closeSuccessBtn");
 const retryBtn = document.getElementById("retryBtn");
 
-// ==================== MESSAGE LISTENER ====================
+// ==================== CHIP SELECTS SETUP ====================
+function setupChipGroup(containerId, hiddenInputId) {
+  const container = document.getElementById(containerId);
+  const hiddenInput = document.getElementById(hiddenInputId);
+  if (!container || !hiddenInput) return;
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log("[DSA Tracker Popup] Message received:", request.action);
+  container.querySelectorAll(".chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const isSelected = chip.classList.contains("selected");
 
-  if (request.action === "fillFormData") {
-    // Fill form data WITHOUT showing popup (silent fill from problem page)
-    console.log(
-      "[DSA Tracker Popup] Silently filling form with problem data:",
-      request.data,
-    );
-    populateFormWithData(request.data);
-    showForm();
-  } else if (request.action === "showPopupWithData") {
-    // Show popup WITH filled data (when accepted)
-    console.log(
-      "[DSA Tracker Popup] 🎉 SHOWING POPUP with accepted submission data:",
-      request.data,
-    );
-    populateFormWithData(request.data);
-    showForm();
+      // Deselect all chips in group
+      container.querySelectorAll(".chip").forEach((c) => c.classList.remove("selected"));
 
-    // Add celebration animation or visual feedback
-    celebrateAcceptance();
-  }
-});
-
-// ==================== POPULATE FORM WITH DATA ====================
-
-function populateFormWithData(data) {
-  try {
-    if (data.problemName) {
-      problemNameInput.value = data.problemName;
-    }
-    if (data.problemLink) {
-      problemLinkInput.value = data.problemLink;
-    }
-    if (data.platform) {
-      platformSelect.value = data.platform;
-    }
-    if (data.difficulty) {
-      difficultySelect.value = data.difficulty;
-    }
-    if (data.userDifficulty) {
-      userDifficultySelect.value = data.userDifficulty;
-    }
-    if (data.status) {
-      const statusOption = document.querySelector(
-        `input[name="status"][value="${data.status}"]`,
-      );
-      if (statusOption) {
-        statusOption.checked = true;
+      // Toggle — click again to deselect
+      if (!isSelected) {
+        chip.classList.add("selected");
+        hiddenInput.value = chip.dataset.value;
+      } else {
+        hiddenInput.value = "";
       }
-    }
-
-    // Add submission time as a remark if available
-    if (data.submissionTime) {
-      const timeNote = `✅ Accepted at ${data.submissionTime}`;
-      if (!remarksTextarea.value) {
-        remarksTextarea.value = timeNote;
-      }
-    }
-
-    console.log("[DSA Tracker Popup] Form populated with data");
-  } catch (error) {
-    console.error("[DSA Tracker Popup] Error populating form:", error);
-  }
+    });
+  });
 }
 
-// ==================== CELEBRATE ACCEPTANCE ====================
+// Initialize all chip groups
+setupChipGroup("solveHelpChips", "solveHelp");
+setupChipGroup("timeTakenChips", "timeTaken");
+setupChipGroup("confidenceChips", "confidence");
 
-function celebrateAcceptance() {
-  // Add visual feedback when problem is accepted
-  const header = document.querySelector(".header");
-  if (header) {
-    // Add a subtle glow animation
-    header.style.animation = "headerGlow 1.5s ease-out";
-  }
-}
-
-// ==================== INITIALIZATION ====================
-
-// document.addEventListener('DOMContentLoaded', () => {
-//   console.log('[DSA Tracker Popup] DOM loaded');
-
-//   // Try to load problem data from current tab
-//   loadProblemData();
-// });
-
+// ==================== INIT ====================
 document.addEventListener("DOMContentLoaded", async () => {
-  const { cfHandle } = await chrome.storage.local.get(["cfHandle"]);
+  console.log("[Popup] DOM loaded");
 
+  const { cfHandle } = await chrome.storage.local.get(["cfHandle"]);
   if (!cfHandle) {
     showSetup();
+    return;
+  }
+
+  const { latestAccepted } = await chrome.storage.local.get(["latestAccepted"]);
+
+  if (latestAccepted) {
+    console.log("[Popup] Found submission:", latestAccepted);
+    currentSubmission = latestAccepted;
+    populateForm(latestAccepted);
+    showForm();
   } else {
-    loadAcceptedIfExists();
+    showForm();
   }
 });
 
-// ==================== LOAD PROBLEM DATA ====================
+// ==================== POPULATE FORM ====================
+function populateForm(data) {
+  console.log("[Popup] Populating with:", data);
 
-function loadProblemData() {
   try {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (!tabs || tabs.length === 0) {
-        console.log("[DSA Tracker Popup] No active tabs");
-        showForm();
-        return;
+    if (data.problemName) problemNameInput.value = data.problemName;
+    if (data.platform) platformSelect.value = data.platform;
+    if (data.problemUrl) problemLinkInput.value = data.problemUrl;
+
+    if (data.difficulty) {
+      const d = data.difficulty.toLowerCase();
+      if (["easy", "medium", "hard"].includes(d)) difficultySelect.value = d;
+    }
+
+    // Status — always solved on acceptance
+    const solvedRadio = document.querySelector('input[name="status"][value="solved"]');
+    if (solvedRadio) solvedRadio.checked = true;
+
+    // Tags
+    if (data.tags && data.tags.length > 0) {
+      tagsInput.value = data.tags.join(", ");
+    }
+
+    // Show submission stats as placeholder hints in approach field
+    const stats = [];
+    if (data.runtime) stats.push(`Runtime: ${data.runtime}`);
+    if (data.memory) stats.push(`Memory: ${data.memory}`);
+    if (data.language) stats.push(`Language: ${data.language}`);
+    if (stats.length > 0) {
+      approachTextarea.placeholder = `${stats.join(" | ")}\n\nWhat technique or algorithm did you use?`;
+    }
+
+    // CF data unavailable note
+    if (data.platform === "codeforces") {
+      const hasNoTags = !data.tags || data.tags.length === 0;
+      const hasNoDifficulty = !data.difficulty && !data.cfRating;
+      if (hasNoTags || hasNoDifficulty) {
+        showCFDataNote(hasNoTags, hasNoDifficulty);
       }
+    }
 
-      const activeTab = tabs[0];
-      console.log("[DSA Tracker Popup] Tab URL:", activeTab.url);
-
-      chrome.tabs.sendMessage(
-        activeTab.id,
-        { action: "getProblemData" },
-        (response) => {
-          if (chrome.runtime.lastError) {
-            console.log(
-              "[DSA Tracker Popup] Tab not responsive, showing empty form",
-            );
-            showForm();
-            return;
-          }
-
-          if (response && response.problemData) {
-            problemData = response.problemData;
-            console.log(
-              "[DSA Tracker Popup] Data received from tab:",
-              problemData,
-            );
-            populateForm();
-            showForm();
-          } else {
-            console.log("[DSA Tracker Popup] No data in response");
-            showForm();
-          }
-        },
-      );
-    });
+    console.log("[Popup] Form populated");
   } catch (error) {
-    console.error("[DSA Tracker Popup] Exception:", error);
-    showForm();
+    console.error("[Popup] Error populating form:", error);
   }
 }
 
-// ==================== POPULATE FORM ====================
+// ==================== CF DATA NOTE ====================
+function showCFDataNote(hasNoTags, hasNoDifficulty) {
+  const existing = document.getElementById("cfDataNote");
+  if (existing) existing.remove();
 
-function populateForm() {
-  try {
-    if (problemData.problemName) {
-      problemNameInput.value = problemData.problemName;
-    }
-    if (problemData.problemLink) {
-      problemLinkInput.value = problemData.problemLink;
-    }
-    if (problemData.platform) {
-      platformSelect.value = problemData.platform;
-    }
-    if (problemData.difficulty) {
-      difficultySelect.value = problemData.difficulty;
-    }
-    if (problemData.status) {
-      const statusOption = document.querySelector(
-        `input[name="status"][value="${problemData.status}"]`,
-      );
-      if (statusOption) {
-        statusOption.checked = true;
-      }
-    }
-    console.log("[DSA Tracker Popup] Form populated");
-  } catch (error) {
-    console.error("[DSA Tracker Popup] Error populating form:", error);
-  }
+  const missing = [];
+  if (hasNoDifficulty) missing.push("difficulty rating");
+  if (hasNoTags) missing.push("topic tags");
+
+  const note = document.createElement("div");
+  note.id = "cfDataNote";
+  note.style.cssText = `
+    background: rgba(255,170,0,0.1);
+    border: 1px solid rgba(255,170,0,0.3);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    color: #ffaa00;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  `;
+  note.innerHTML = `
+    <span style="font-size:14px;margin-top:1px">⚠️</span>
+    <span>
+      <strong>Some data unavailable:</strong> Codeforces doesn't provide
+      ${missing.join(" or ")} for this contest type. You can add them manually.
+    </span>
+  `;
+
+  const tagsGroup = tagsInput.closest(".form-group");
+  if (tagsGroup) tagsGroup.parentNode.insertBefore(note, tagsGroup);
+  else form.insertBefore(note, form.firstChild);
 }
 
 // ==================== FORM SUBMISSION ====================
-
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
-
   if (isSubmitting) return;
 
-  // Validation
   if (!problemNameInput.value.trim()) {
     animateError(problemNameInput);
     return;
@@ -227,102 +179,78 @@ form.addEventListener("submit", async (e) => {
   isSubmitting = true;
   showLoading();
 
-  // Collect form data
-  const formData = {
+  const payload = {
+    // Auto-filled
     problem_name: problemNameInput.value.trim(),
-    problem_link: problemLinkInput.value.trim() || null,
     platform: platformSelect.value,
+    problem_url: problemLinkInput.value.trim() || null,
     difficulty: difficultySelect.value,
-    user_difficulty: userDifficultySelect.value,
     status: document.querySelector('input[name="status"]:checked').value,
-    remarks: remarksTextarea.value.trim() || null,
-    tags: tagsInput.value
-      .split(",")
-      .map((tag) => tag.trim())
-      .filter((tag) => tag.length > 0),
+    tags: tagsInput.value.split(",").map((t) => t.trim()).filter((t) => t.length > 0),
+    problem_key: currentSubmission?.problemKey ||
+      generateProblemKey(platformSelect.value, problemNameInput.value.trim()),
+    language: currentSubmission?.language || null,
+    runtime: currentSubmission?.runtime || null,
+    memory: currentSubmission?.memory || null,
+    submission_id: currentSubmission?.submissionId || null,
+    submission_url: currentSubmission?.submissionUrl || null,
+    solved_at: currentSubmission?.solvedAt || new Date().toISOString(),
+    cf_rating: currentSubmission?.cfRating || null,
+
+    // User quick selects
+    user_difficulty: userDifficultySelect.value,
+    solve_help: document.getElementById("solveHelp").value || null,
+    time_taken: document.getElementById("timeTaken").value || null,
+    confidence: document.getElementById("confidence").value || null,
+    pattern: patternSelect.value || null,
     needs_revision: needsRevisionCheckbox.checked,
+
+    // User text notes
+    approach: approachTextarea.value.trim() || null,
+    mistakes: mistakesTextarea.value.trim() || null,
+    similar_problems: similarProblemsInput.value.trim() || null,
   };
 
-  console.log("[DSA Tracker Popup] Submitting problem:", formData);
+  console.log("[Popup] Sending payload:", payload);
 
   try {
-    const response = await fetch(
-      "http://localhost:3000/api/problems/from-extension",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(formData),
-      },
-    );
+    const response = await fetch("http://localhost:3000/api/problems/from-extension", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
 
     const result = await response.json();
+    if (!response.ok) throw new Error(result.message || "Failed to save");
 
-    if (!response.ok) {
-      const errorMsg =
-        result.message || result.error || "Failed to add problem";
-      throw new Error(errorMsg);
-    }
+    console.log("[Popup] Saved:", result);
 
-    console.log("[DSA Tracker Popup] Success:", result);
-    showSuccess(`"${formData.problem_name}" saved! 🎉`);
+    await chrome.storage.local.remove(["latestAccepted"]);
+    chrome.action.setBadgeText({ text: "" });
 
-    // Close popup after 2 seconds
-    setTimeout(() => {
-      window.close();
-    }, 2000);
+    showSuccess(`"${payload.problem_name}" saved! 🎉`);
+    setTimeout(() => window.close(), 2000);
+
   } catch (error) {
-    console.error("[DSA Tracker Popup] Error submitting:", error);
+    console.error("[Popup] Error:", error);
     isSubmitting = false;
-    showError(
-      error.message || "Could not save problem. Make sure you are logged in.",
-    );
+    showError(error.message || "Could not save. Make sure DSA Tracker app is running.");
   }
 });
 
-// ==================== UI STATE FUNCTIONS ====================
-
-function showLoading() {
-  console.log("[DSA Tracker Popup] Showing loading state");
-  form.style.display = "none";
-  loadingState.style.display = "flex";
-  errorState.style.display = "none";
-  successState.style.display = "none";
+// ==================== HELPERS ====================
+function generateProblemKey(platform, problemName) {
+  const slug = problemName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+  return `${platform}-${slug}`;
 }
 
-function showForm() {
-  console.log("[DSA Tracker Popup] Showing form");
-  form.style.display = "flex";
-  loadingState.style.display = "none";
-  errorState.style.display = "none";
-  successState.style.display = "none";
+function animateError(element) {
+  element.style.animation = "none";
+  setTimeout(() => { element.style.animation = "shake 0.6s ease-in-out"; }, 10);
+  setTimeout(() => { element.style.animation = "none"; }, 610);
 }
 
-function showError(message) {
-  console.log("[DSA Tracker Popup] Showing error:", message);
-  errorMessage.textContent = message;
-  form.style.display = "none";
-  loadingState.style.display = "none";
-  errorState.style.display = "flex";
-  successState.style.display = "none";
-}
-
-function showSuccess(message) {
-  console.log("[DSA Tracker Popup] Showing success:", message);
-  successMessage.textContent = message;
-  form.style.display = "none";
-  loadingState.style.display = "none";
-  errorState.style.display = "none";
-  successState.style.display = "flex";
-
-  chrome.action.setBadgeText({ text: "" });
-
-  chrome.storage.local.remove("latestAccepted");
-}
-
-// --------IMPROVISES
+// ==================== SETUP ====================
 function showSetup() {
   form.style.display = "none";
   loadingState.style.display = "none";
@@ -334,74 +262,52 @@ function showSetup() {
 saveHandleBtn.addEventListener("click", async () => {
   const handle = cfHandleInput.value.trim();
   if (!handle) return;
-
   await chrome.storage.local.set({ cfHandle: handle });
-
   setupState.style.display = "none";
-  loadAcceptedIfExists();
-});
-
-function loadAcceptedIfExists() {
-  chrome.runtime.sendMessage(
-    { action: "getAcceptedSubmission" },
-    (accepted) => {
-      if (accepted) {
-        populateFormWithData({
-          problemName: accepted.problemName,
-          problemLink: accepted.link,
-          platform: accepted.platform,
-          status: "solved",
-        });
-
-        showForm();
-      } else {
-        showForm();
-      }
-    },
-  );
-}
-// ==================== HELPER FUNCTIONS ====================
-
-function animateError(element) {
-  element.style.animation = "none";
-  setTimeout(() => {
-    element.style.animation = "shake 0.6s ease-in-out";
-  }, 10);
-
-  setTimeout(() => {
-    element.style.animation = "none";
-  }, 610);
-}
-
-// ==================== EVENT LISTENERS ====================
-
-closeBtn.addEventListener("click", () => {
-  console.log("[DSA Tracker Popup] Close button clicked");
-  window.close();
-});
-
-closeSuccessBtn.addEventListener("click", () => {
-  console.log("[DSA Tracker Popup] Close success button clicked");
-  window.close();
-});
-
-retryBtn.addEventListener("click", () => {
-  console.log("[DSA Tracker Popup] Retry button clicked");
-  isSubmitting = false;
-  form.reset();
+  const { latestAccepted } = await chrome.storage.local.get(["latestAccepted"]);
+  if (latestAccepted) { currentSubmission = latestAccepted; populateForm(latestAccepted); }
   showForm();
-  loadProblemData();
 });
 
-// ==================== KEYBOARD SHORTCUTS ====================
+// ==================== UI STATES ====================
+function showLoading() {
+  form.style.display = "none";
+  loadingState.style.display = "flex";
+  errorState.style.display = "none";
+  successState.style.display = "none";
+}
+
+function showForm() {
+  form.style.display = "flex";
+  loadingState.style.display = "none";
+  errorState.style.display = "none";
+  successState.style.display = "none";
+}
+
+function showError(message) {
+  errorMessage.textContent = message;
+  form.style.display = "none";
+  loadingState.style.display = "none";
+  errorState.style.display = "flex";
+  successState.style.display = "none";
+}
+
+function showSuccess(message) {
+  successMessage.textContent = message;
+  form.style.display = "none";
+  loadingState.style.display = "none";
+  errorState.style.display = "none";
+  successState.style.display = "flex";
+}
+
+// ==================== EVENTS ====================
+closeBtn.addEventListener("click", () => window.close());
+closeSuccessBtn.addEventListener("click", () => window.close());
+retryBtn.addEventListener("click", () => { isSubmitting = false; showForm(); });
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") {
-    window.close();
-  }
-  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-    form.dispatchEvent(new Event("submit"));
-  }
+  if (e.key === "Escape") window.close();
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") form.dispatchEvent(new Event("submit"));
 });
 
-console.log("[DSA Tracker Popup] Popup script fully initialized");
+console.log("[DSA Tracker Popup] Ready");

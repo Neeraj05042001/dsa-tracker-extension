@@ -6,33 +6,19 @@
     <title>DSA Tracker</title>
     <link rel="stylesheet" href="popup.css" />
     <style>
-      html,
-      body {
-        width: 480px !important;
-        min-width: 480px !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        overflow-x: hidden !important;
-      }
+      /* Force dark color scheme so native select dropdown is dark */
+      html { color-scheme: dark; }
     </style>
   </head>
   <body>
     <div class="container">
+
       <!-- Header -->
       <div class="header">
         <div class="header-content">
           <div class="logo">
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <polyline
-                points="12 3 20 7.5 20 16.5 12 21 4 16.5 4 7.5 12 3"
-              ></polyline>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="12 3 20 7.5 20 16.5 12 21 4 16.5 4 7.5 12 3"></polyline>
               <line x1="12" y1="12" x2="20" y2="7.5"></line>
               <line x1="12" y1="12" x2="12" y2="21"></line>
               <line x1="12" y1="12" x2="4" y2="7.5"></line>
@@ -45,7 +31,7 @@
       </div>
 
       <!-- Setup State -->
-      <div class="setup-state" id="setupState" style="display: none">
+      <div class="setup-state" id="setupState" style="display:none">
         <h2>Initial Setup</h2>
         <p>Enter your Codeforces handle</p>
         <input type="text" id="cfHandleInput" placeholder="e.g. tourist" />
@@ -55,39 +41,35 @@
       <!-- Loading State -->
       <div class="loading-state" id="loadingState">
         <div class="spinner"></div>
-        <p>Analyzing problem...</p>
+        <p>Saving problem...</p>
       </div>
 
       <!-- Error State -->
-      <div class="error-state" id="errorState" style="display: none">
+      <div class="error-state" id="errorState" style="display:none">
         <div class="error-icon">⚠️</div>
         <p class="error-message" id="errorMessage"></p>
         <button class="btn-secondary" id="retryBtn">Retry</button>
       </div>
 
       <!-- Success State -->
-      <div class="success-state" id="successState" style="display: none">
+      <div class="success-state" id="successState" style="display:none">
         <div class="success-icon">✓</div>
         <h2>Added to DSA Tracker!</h2>
         <p id="successMessage"></p>
         <button class="btn-primary" id="closeSuccessBtn">Done</button>
       </div>
 
-      <!-- Form -->
+      <!-- ==================== FORM ==================== -->
       <form id="problemForm" class="form">
-        <!-- Problem Name -->
+
+        <!-- ── AUTO-FILLED SECTION ── -->
+        <p class="section-label">Problem Info</p>
+
         <div class="form-group">
           <label for="problemName">Problem Name *</label>
-          <input
-            type="text"
-            id="problemName"
-            name="problemName"
-            placeholder="e.g., Two Sum"
-            required
-          />
+          <input type="text" id="problemName" name="problemName" placeholder="e.g., Two Sum" required />
         </div>
 
-        <!-- Platform & Link (Row) -->
         <div class="form-row">
           <div class="form-group half">
             <label for="platform">Platform *</label>
@@ -97,19 +79,12 @@
               <option value="other">Other</option>
             </select>
           </div>
-
           <div class="form-group half">
             <label for="problemLink">Problem Link</label>
-            <input
-              type="url"
-              id="problemLink"
-              name="problemLink"
-              placeholder="https://..."
-            />
+            <input type="url" id="problemLink" name="problemLink" placeholder="https://..." />
           </div>
         </div>
 
-        <!-- Difficulty (Row) -->
         <div class="form-row">
           <div class="form-group half">
             <label for="difficulty">Platform Difficulty *</label>
@@ -119,7 +94,6 @@
               <option value="hard">Hard</option>
             </select>
           </div>
-
           <div class="form-group half">
             <label for="userDifficulty">Your Rating *</label>
             <select id="userDifficulty" name="userDifficulty" required>
@@ -129,6 +103,17 @@
             </select>
           </div>
         </div>
+
+        <!-- Tags -->
+        <div class="form-group">
+          <label for="tags">Tags</label>
+          <input type="text" id="tags" name="tags" placeholder="Array, Hash Map, Two Pointer..." />
+        </div>
+
+        <hr class="section-divider" />
+
+        <!-- ── QUICK SELECTS ── -->
+        <p class="section-label">How Did It Go?</p>
 
         <!-- Status -->
         <div class="form-group">
@@ -147,29 +132,96 @@
           </div>
         </div>
 
-        <!-- Remarks -->
+        <!-- Solved With Help -->
         <div class="form-group">
-          <label for="remarks">Remarks (Optional)</label>
-          <textarea
-            id="remarks"
-            name="remarks"
-            placeholder="Your approach, key insights, challenges..."
-            rows="3"
-          ></textarea>
+          <label>Solved With Help?</label>
+          <div class="chip-group" id="solveHelpChips">
+            <div class="chip chip-green" data-value="no_help">✓ No Help</div>
+            <div class="chip chip-yellow" data-value="hints">💡 Took Hints</div>
+            <div class="chip chip-red" data-value="saw_solution">👁 Saw Solution</div>
+          </div>
+          <input type="hidden" id="solveHelp" name="solveHelp" value="" />
         </div>
 
-        <!-- Tags -->
+        <!-- Time Taken -->
         <div class="form-group">
-          <label for="tags">Tags (Optional)</label>
-          <input
-            type="text"
-            id="tags"
-            name="tags"
-            placeholder="e.g., array, hash-map, two-pointer (comma-separated)"
-          />
+          <label>Time Taken</label>
+          <div class="chip-group" id="timeTakenChips">
+            <div class="chip" data-value="<15">⚡ &lt;15 min</div>
+            <div class="chip" data-value="15-30">🕐 15-30 min</div>
+            <div class="chip" data-value="30-60">🕑 30-60 min</div>
+            <div class="chip" data-value=">60">🕒 &gt;1 hour</div>
+          </div>
+          <input type="hidden" id="timeTaken" name="timeTaken" value="" />
         </div>
 
-        <!-- Revision Checkbox -->
+        <!-- Confidence -->
+        <div class="form-group">
+          <label>Confidence (can you solve again?)</label>
+          <div class="chip-group" id="confidenceChips">
+            <div class="chip chip-red" data-value="low">😰 Low</div>
+            <div class="chip chip-yellow" data-value="medium">🤔 Medium</div>
+            <div class="chip chip-green" data-value="high">💪 High</div>
+          </div>
+          <input type="hidden" id="confidence" name="confidence" value="" />
+        </div>
+
+        <!-- Pattern -->
+        <div class="form-group">
+          <label for="pattern">Problem Pattern</label>
+          <select id="pattern" name="pattern">
+            <option value="">-- Select Pattern --</option>
+            <option value="sliding_window">Sliding Window</option>
+            <option value="two_pointers">Two Pointers</option>
+            <option value="fast_slow_pointers">Fast & Slow Pointers</option>
+            <option value="merge_intervals">Merge Intervals</option>
+            <option value="cyclic_sort">Cyclic Sort</option>
+            <option value="in_place_reversal">In-place Reversal</option>
+            <option value="bfs">BFS</option>
+            <option value="dfs">DFS</option>
+            <option value="two_heaps">Two Heaps</option>
+            <option value="subsets">Subsets / Backtracking</option>
+            <option value="binary_search">Modified Binary Search</option>
+            <option value="top_k">Top K Elements</option>
+            <option value="k_way_merge">K-way Merge</option>
+            <option value="dynamic_programming">Dynamic Programming</option>
+            <option value="topological_sort">Topological Sort</option>
+            <option value="greedy">Greedy</option>
+            <option value="bit_manipulation">Bit Manipulation</option>
+            <option value="math">Math / Number Theory</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <hr class="section-divider" />
+
+        <!-- ── NOTES SECTION ── -->
+        <p class="section-label">Notes (Optional)</p>
+
+        <!-- Approach -->
+        <div class="form-group">
+          <label for="approach">Your Approach / Idea</label>
+          <textarea id="approach" name="approach"
+            placeholder="What technique or algorithm did you use? e.g. Used HashMap to store complements..."
+            rows="2"></textarea>
+        </div>
+
+        <!-- Mistakes -->
+        <div class="form-group">
+          <label for="mistakes">Mistakes / What Went Wrong</label>
+          <textarea id="mistakes" name="mistakes"
+            placeholder="What did you get wrong or struggle with? e.g. Forgot to handle empty array edge case..."
+            rows="2"></textarea>
+        </div>
+
+        <!-- Similar Problems -->
+        <div class="form-group">
+          <label for="similarProblems">Similar Problems</label>
+          <input type="text" id="similarProblems" name="similarProblems"
+            placeholder="e.g. Three Sum, Container With Most Water" />
+        </div>
+
+        <!-- Needs Revision -->
         <div class="form-group checkbox-group">
           <label class="checkbox-label">
             <input type="checkbox" id="needsRevision" name="needsRevision" />
@@ -178,22 +230,22 @@
           </label>
         </div>
 
-        <!-- Submit Button -->
+        <!-- Submit -->
         <button type="submit" class="btn-submit">
           <span class="btn-icon">+</span>
           Add to DSA Tracker
         </button>
+
       </form>
 
-      <!-- Footer -->
       <div class="footer">
         <p class="footer-text">
           <span class="footer-icon">📊</span>
           View your progress in the DSA Tracker app
         </p>
       </div>
-    </div>
 
+    </div>
     <script src="popup.js"></script>
   </body>
 </html>
