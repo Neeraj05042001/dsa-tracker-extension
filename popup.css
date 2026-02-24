@@ -1097,3 +1097,27 @@ body {
   overflow: hidden;
   min-height: 0;
 }
+
+/* ════════════════════════════════
+   BRAND LOGO — [ ✓ ] ENTRANCE ANIMATION
+════════════════════════════════ */
+
+/* Idle glow pulse on checkmark after entrance */
+@keyframes checkGlow {
+  0%, 100% { filter: drop-shadow(0 0 1.5px rgba(0,212,170,0.3)); }
+  50%       { filter: drop-shadow(0 0 5px rgba(0,212,170,0.75)); }
+}
+
+@keyframes underbarBreath {
+  0%, 100% { opacity: 0.7; }
+  50%       { opacity: 0.35; }
+}
+
+/* Applied via JS after entrance settles */
+#brandLogo.idle .logo-ck {
+  animation: checkGlow 2.8s ease-in-out infinite;
+}
+
+#brandLogo.idle .logo-ub {
+  animation: underbarBreath 2.8s ease-in-out infinite;
+}
