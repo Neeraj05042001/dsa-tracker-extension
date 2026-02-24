@@ -1,251 +1,303 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>DSA Tracker</title>
-    <link rel="stylesheet" href="popup.css" />
-    <style>
-      /* Force dark color scheme so native select dropdown is dark */
-      html { color-scheme: dark; }
-    </style>
-  </head>
-  <body>
-    <div class="container">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DSA Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+<div class="app">
 
-      <!-- Header -->
-      <div class="header">
-        <div class="header-content">
-          <div class="logo">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="12 3 20 7.5 20 16.5 12 21 4 16.5 4 7.5 12 3"></polyline>
-              <line x1="12" y1="12" x2="20" y2="7.5"></line>
-              <line x1="12" y1="12" x2="12" y2="21"></line>
-              <line x1="12" y1="12" x2="4" y2="7.5"></line>
-            </svg>
-            <h1>DSA Tracker</h1>
-          </div>
-          <span class="close-btn" id="closeBtn">✕</span>
-        </div>
-        <p class="subtitle">Capture your coding success</p>
+  <!-- ═══════════════ SETUP STATE ═══════════════ -->
+  <div class="state-setup" id="setupState" style="display:none">
+    <div class="setup-inner">
+      <div class="setup-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <polyline points="12 3 20 7.5 20 16.5 12 21 4 16.5 4 7.5 12 3"/>
+          <line x1="12" y1="12" x2="20" y2="7.5"/>
+          <line x1="12" y1="12" x2="12" y2="21"/>
+          <line x1="12" y1="12" x2="4" y2="7.5"/>
+        </svg>
       </div>
-
-      <!-- Setup State -->
-      <div class="setup-state" id="setupState" style="display:none">
-        <h2>Initial Setup</h2>
-        <p>Enter your Codeforces handle</p>
-        <input type="text" id="cfHandleInput" placeholder="e.g. tourist" />
-        <button class="btn-primary" id="saveHandleBtn">Save</button>
-      </div>
-
-      <!-- Loading State -->
-      <div class="loading-state" id="loadingState">
-        <div class="spinner"></div>
-        <p>Saving problem...</p>
-      </div>
-
-      <!-- Error State -->
-      <div class="error-state" id="errorState" style="display:none">
-        <div class="error-icon">⚠️</div>
-        <p class="error-message" id="errorMessage"></p>
-        <button class="btn-secondary" id="retryBtn">Retry</button>
-      </div>
-
-      <!-- Success State -->
-      <div class="success-state" id="successState" style="display:none">
-        <div class="success-icon">✓</div>
-        <h2>Added to DSA Tracker!</h2>
-        <p id="successMessage"></p>
-        <button class="btn-primary" id="closeSuccessBtn">Done</button>
-      </div>
-
-      <!-- ==================== FORM ==================== -->
-      <form id="problemForm" class="form">
-
-        <!-- ── AUTO-FILLED SECTION ── -->
-        <p class="section-label">Problem Info</p>
-
-        <div class="form-group">
-          <label for="problemName">Problem Name *</label>
-          <input type="text" id="problemName" name="problemName" placeholder="e.g., Two Sum" required />
-        </div>
-
-        <div class="form-row">
-          <div class="form-group half">
-            <label for="platform">Platform *</label>
-            <select id="platform" name="platform" required>
-              <option value="leetcode">LeetCode</option>
-              <option value="codeforces">Codeforces</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-          <div class="form-group half">
-            <label for="problemLink">Problem Link</label>
-            <input type="url" id="problemLink" name="problemLink" placeholder="https://..." />
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group half">
-            <label for="difficulty">Platform Difficulty *</label>
-            <select id="difficulty" name="difficulty" required>
-              <option value="easy">Easy</option>
-              <option value="medium">Medium</option>
-              <option value="hard">Hard</option>
-            </select>
-          </div>
-          <div class="form-group half">
-            <label for="userDifficulty">Your Rating *</label>
-            <select id="userDifficulty" name="userDifficulty" required>
-              <option value="easy">Easy for me</option>
-              <option value="medium">Medium for me</option>
-              <option value="hard">Hard for me</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Tags -->
-        <div class="form-group">
-          <label for="tags">Tags</label>
-          <input type="text" id="tags" name="tags" placeholder="Array, Hash Map, Two Pointer..." />
-        </div>
-
-        <hr class="section-divider" />
-
-        <!-- ── QUICK SELECTS ── -->
-        <p class="section-label">How Did It Go?</p>
-
-        <!-- Status -->
-        <div class="form-group">
-          <label>Status *</label>
-          <div class="radio-group">
-            <label class="radio-label">
-              <input type="radio" name="status" value="solved" checked />
-              <span class="radio-custom"></span>
-              Solved
-            </label>
-            <label class="radio-label">
-              <input type="radio" name="status" value="attempted" />
-              <span class="radio-custom"></span>
-              Attempted
-            </label>
-          </div>
-        </div>
-
-        <!-- Solved With Help -->
-        <div class="form-group">
-          <label>Solved With Help?</label>
-          <div class="chip-group" id="solveHelpChips">
-            <div class="chip chip-green" data-value="no_help">✓ No Help</div>
-            <div class="chip chip-yellow" data-value="hints">💡 Took Hints</div>
-            <div class="chip chip-red" data-value="saw_solution">👁 Saw Solution</div>
-          </div>
-          <input type="hidden" id="solveHelp" name="solveHelp" value="" />
-        </div>
-
-        <!-- Time Taken -->
-        <div class="form-group">
-          <label>Time Taken</label>
-          <div class="chip-group" id="timeTakenChips">
-            <div class="chip" data-value="<15">⚡ &lt;15 min</div>
-            <div class="chip" data-value="15-30">🕐 15-30 min</div>
-            <div class="chip" data-value="30-60">🕑 30-60 min</div>
-            <div class="chip" data-value=">60">🕒 &gt;1 hour</div>
-          </div>
-          <input type="hidden" id="timeTaken" name="timeTaken" value="" />
-        </div>
-
-        <!-- Confidence -->
-        <div class="form-group">
-          <label>Confidence (can you solve again?)</label>
-          <div class="chip-group" id="confidenceChips">
-            <div class="chip chip-red" data-value="low">😰 Low</div>
-            <div class="chip chip-yellow" data-value="medium">🤔 Medium</div>
-            <div class="chip chip-green" data-value="high">💪 High</div>
-          </div>
-          <input type="hidden" id="confidence" name="confidence" value="" />
-        </div>
-
-        <!-- Pattern -->
-        <div class="form-group">
-          <label for="pattern">Problem Pattern</label>
-          <select id="pattern" name="pattern">
-            <option value="">-- Select Pattern --</option>
-            <option value="sliding_window">Sliding Window</option>
-            <option value="two_pointers">Two Pointers</option>
-            <option value="fast_slow_pointers">Fast & Slow Pointers</option>
-            <option value="merge_intervals">Merge Intervals</option>
-            <option value="cyclic_sort">Cyclic Sort</option>
-            <option value="in_place_reversal">In-place Reversal</option>
-            <option value="bfs">BFS</option>
-            <option value="dfs">DFS</option>
-            <option value="two_heaps">Two Heaps</option>
-            <option value="subsets">Subsets / Backtracking</option>
-            <option value="binary_search">Modified Binary Search</option>
-            <option value="top_k">Top K Elements</option>
-            <option value="k_way_merge">K-way Merge</option>
-            <option value="dynamic_programming">Dynamic Programming</option>
-            <option value="topological_sort">Topological Sort</option>
-            <option value="greedy">Greedy</option>
-            <option value="bit_manipulation">Bit Manipulation</option>
-            <option value="math">Math / Number Theory</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
-
-        <hr class="section-divider" />
-
-        <!-- ── NOTES SECTION ── -->
-        <p class="section-label">Notes (Optional)</p>
-
-        <!-- Approach -->
-        <div class="form-group">
-          <label for="approach">Your Approach / Idea</label>
-          <textarea id="approach" name="approach"
-            placeholder="What technique or algorithm did you use? e.g. Used HashMap to store complements..."
-            rows="2"></textarea>
-        </div>
-
-        <!-- Mistakes -->
-        <div class="form-group">
-          <label for="mistakes">Mistakes / What Went Wrong</label>
-          <textarea id="mistakes" name="mistakes"
-            placeholder="What did you get wrong or struggle with? e.g. Forgot to handle empty array edge case..."
-            rows="2"></textarea>
-        </div>
-
-        <!-- Similar Problems -->
-        <div class="form-group">
-          <label for="similarProblems">Similar Problems</label>
-          <input type="text" id="similarProblems" name="similarProblems"
-            placeholder="e.g. Three Sum, Container With Most Water" />
-        </div>
-
-        <!-- Needs Revision -->
-        <div class="form-group checkbox-group">
-          <label class="checkbox-label">
-            <input type="checkbox" id="needsRevision" name="needsRevision" />
-            <span class="checkbox-custom"></span>
-            <span class="checkbox-text">Mark for interview revision</span>
-          </label>
-        </div>
-
-        <!-- Submit -->
-        <button type="submit" class="btn-submit">
-          <span class="btn-icon">+</span>
-          Add to DSA Tracker
+      <h2 class="setup-title">Welcome to DSA Tracker</h2>
+      <p class="setup-sub">Enter your Codeforces handle to get started</p>
+      <div class="setup-field">
+        <input type="text" id="cfHandleInput" placeholder="e.g. tourist" autocomplete="off" />
+        <button id="saveHandleBtn">
+          <span>Continue</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </button>
+      </div>
+    </div>
+  </div>
 
-      </form>
+  <!-- ═══════════════ LOADING STATE ═══════════════ -->
+  <div class="state-loading" id="loadingState">
+    <div class="loading-ring">
+      <svg viewBox="0 0 50 50"><circle cx="25" cy="25" r="20" fill="none" stroke-width="3"/></svg>
+    </div>
+    <p>Saving to tracker...</p>
+  </div>
 
-      <div class="footer">
-        <p class="footer-text">
-          <span class="footer-icon">📊</span>
-          View your progress in the DSA Tracker app
-        </p>
+  <!-- ═══════════════ ERROR STATE ═══════════════ -->
+  <div class="state-error" id="errorState" style="display:none">
+    <div class="error-glyph">!</div>
+    <p id="errorMessage">Something went wrong</p>
+    <div class="error-hint">Make sure the DSA Tracker app is running at localhost:3000</div>
+    <button class="btn-ghost" id="retryBtn">Try again</button>
+  </div>
+
+  <!-- ═══════════════ SUCCESS STATE ═══════════════ -->
+  <div class="state-success" id="successState" style="display:none">
+    <div class="success-ring">
+      <div class="success-check">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+    </div>
+    <h3 id="successTitle">Problem saved!</h3>
+    <p id="successMessage"></p>
+    <button class="btn-ghost" id="closeSuccessBtn">Close</button>
+  </div>
+
+  <!-- ═══════════════ MAIN FORM ═══════════════ -->
+  <div class="main" id="mainForm" style="display:none">
+
+    <!-- Header -->
+    <div class="topbar">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="12 3 20 7.5 20 16.5 12 21 4 16.5 4 7.5 12 3"/>
+            <line x1="12" y1="12" x2="20" y2="7.5"/>
+            <line x1="12" y1="12" x2="12" y2="21"/>
+            <line x1="12" y1="12" x2="4" y2="7.5"/>
+          </svg>
+        </div>
+        <span class="brand-name">DSA Tracker</span>
+      </div>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="openDashboardBtn" title="Open Dashboard">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </button>
+        <button class="icon-btn" id="closeBtn" title="Close">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Acceptance Banner -->
+    <div class="acceptance-banner" id="acceptanceBanner">
+      <div class="banner-left">
+        <div class="banner-status" id="bannerStatus">
+          <div class="status-dot"></div>
+          <span id="bannerStatusText">Accepted</span>
+        </div>
+        <div class="banner-problem" id="bannerProblem">—</div>
+        <div class="banner-meta" id="bannerMeta"></div>
+      </div>
+      <div class="platform-badge" id="platformBadge">LC</div>
+    </div>
+
+    <!-- CF Warning -->
+    <div class="cf-notice" id="cfNotice" style="display:none">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <span id="cfNoticeText">Difficulty & tags unavailable for this contest type — add manually</span>
+    </div>
+
+    <form id="problemForm">
+      <div class="scroll-body">
+
+        <!-- ── SECTION: Problem ── -->
+        <div class="section">
+          <div class="section-head">Problem Info</div>
+
+          <div class="field">
+            <label>Problem Name</label>
+            <input type="text" id="problemName" placeholder="e.g. Two Sum" autocomplete="off" />
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label>Platform</label>
+              <div class="custom-select-wrap">
+                <select id="platform">
+                  <option value="leetcode">LeetCode</option>
+                  <option value="codeforces">Codeforces</option>
+                  <option value="other">Other</option>
+                </select>
+                <svg class="select-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+              </div>
+            </div>
+            <div class="field">
+              <label>Problem Link</label>
+              <input type="url" id="problemLink" placeholder="https://..." />
+            </div>
+          </div>
+
+          <!-- Difficulty chips -->
+          <div class="field">
+            <label>Platform Difficulty</label>
+            <div class="chip-row" id="difficultyChips">
+              <button type="button" class="chip chip-easy" data-value="easy">Easy</button>
+              <button type="button" class="chip chip-medium" data-value="medium">Medium</button>
+              <button type="button" class="chip chip-hard" data-value="hard">Hard</button>
+            </div>
+            <input type="hidden" id="difficulty" value="medium" />
+          </div>
+
+          <!-- Tags -->
+          <div class="field">
+            <label>Tags <span class="label-auto">auto-filled</span></label>
+            <input type="text" id="tags" placeholder="Array, Hash Map, Two Pointer..." />
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- ── SECTION: How did it go ── -->
+        <div class="section">
+          <div class="section-head">How Did It Go?</div>
+
+          <!-- Status -->
+          <div class="field">
+            <label>Status</label>
+            <div class="toggle-row">
+              <button type="button" class="toggle-btn active" id="statusSolved" data-value="solved">✓ Solved</button>
+              <button type="button" class="toggle-btn" id="statusAttempted" data-value="attempted">~ Attempted</button>
+            </div>
+            <input type="hidden" id="statusInput" value="solved" />
+          </div>
+
+          <!-- Your difficulty -->
+          <div class="field">
+            <label>Felt like for you</label>
+            <div class="chip-row" id="userDiffChips">
+              <button type="button" class="chip chip-easy" data-value="easy">Easy</button>
+              <button type="button" class="chip chip-medium" data-value="medium">Medium</button>
+              <button type="button" class="chip chip-hard" data-value="hard">Hard</button>
+            </div>
+            <input type="hidden" id="userDifficulty" value="medium" />
+          </div>
+
+          <!-- Solve Help -->
+          <div class="field">
+            <label>Solved with help?</label>
+            <div class="chip-row" id="solveHelpChips">
+              <button type="button" class="chip chip-green" data-value="no_help">No Help</button>
+              <button type="button" class="chip chip-amber" data-value="hints">Took Hints</button>
+              <button type="button" class="chip chip-red" data-value="saw_solution">Saw Solution</button>
+            </div>
+            <input type="hidden" id="solveHelp" value="" />
+          </div>
+
+          <!-- Time Taken -->
+          <div class="field">
+            <label>Time taken</label>
+            <div class="chip-row" id="timeTakenChips">
+              <button type="button" class="chip" data-value="<15">&lt;15 min</button>
+              <button type="button" class="chip" data-value="15-30">15–30 min</button>
+              <button type="button" class="chip" data-value="30-60">30–60 min</button>
+              <button type="button" class="chip" data-value=">60">&gt;1 hour</button>
+            </div>
+            <input type="hidden" id="timeTaken" value="" />
+          </div>
+
+          <!-- Confidence -->
+          <div class="field">
+            <label>Confidence to solve again?</label>
+            <div class="chip-row" id="confidenceChips">
+              <button type="button" class="chip chip-red" data-value="low">Low</button>
+              <button type="button" class="chip chip-amber" data-value="medium">Medium</button>
+              <button type="button" class="chip chip-green" data-value="high">High</button>
+            </div>
+            <input type="hidden" id="confidence" value="" />
+          </div>
+
+          <!-- Pattern -->
+          <div class="field">
+            <label>Problem Pattern</label>
+            <div class="chip-row wrap" id="patternChips">
+              <button type="button" class="chip chip-sm" data-value="sliding_window">Sliding Window</button>
+              <button type="button" class="chip chip-sm" data-value="two_pointers">Two Pointers</button>
+              <button type="button" class="chip chip-sm" data-value="binary_search">Binary Search</button>
+              <button type="button" class="chip chip-sm" data-value="bfs">BFS</button>
+              <button type="button" class="chip chip-sm" data-value="dfs">DFS</button>
+              <button type="button" class="chip chip-sm" data-value="dynamic_programming">DP</button>
+              <button type="button" class="chip chip-sm" data-value="greedy">Greedy</button>
+              <button type="button" class="chip chip-sm" data-value="backtracking">Backtracking</button>
+              <button type="button" class="chip chip-sm" data-value="top_k">Top K</button>
+              <button type="button" class="chip chip-sm" data-value="merge_intervals">Merge Intervals</button>
+              <button type="button" class="chip chip-sm" data-value="bit_manipulation">Bit Manip</button>
+              <button type="button" class="chip chip-sm" data-value="math">Math</button>
+              <button type="button" class="chip chip-sm" data-value="other">Other</button>
+            </div>
+            <input type="hidden" id="pattern" value="" />
+          </div>
+
+          <!-- Needs Revision -->
+          <div class="field">
+            <button type="button" class="revision-toggle" id="revisionToggle">
+              <div class="revision-left">
+                <div class="revision-icon">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
+                </div>
+                <span>Mark for interview revision</span>
+              </div>
+              <div class="revision-check" id="revisionCheck"></div>
+            </button>
+            <input type="hidden" id="needsRevision" value="false" />
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- ── SECTION: Notes (Collapsed by default) ── -->
+        <div class="section">
+          <button type="button" class="notes-toggle" id="notesToggle">
+            <div class="notes-toggle-left">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              <span>Add notes</span>
+              <span class="notes-optional">optional</span>
+            </div>
+            <svg class="notes-arrow" id="notesArrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+
+          <div class="notes-body" id="notesBody" style="display:none">
+            <div class="field" style="margin-top:12px">
+              <label>Your Approach / Idea</label>
+              <textarea id="approach" rows="2" placeholder="What technique did you use? e.g. HashMap to store complements..."></textarea>
+            </div>
+            <div class="field">
+              <label>Mistakes / What Went Wrong</label>
+              <textarea id="mistakes" rows="2" placeholder="What tripped you up? e.g. Forgot empty array edge case..."></textarea>
+            </div>
+            <div class="field">
+              <label>Similar Problems</label>
+              <input type="text" id="similarProblems" placeholder="e.g. Three Sum, Trapping Rain Water" />
+            </div>
+          </div>
+        </div>
+
       </div>
 
-    </div>
-    <script src="popup.js"></script>
-  </body>
+      <!-- Submit -->
+      <div class="submit-bar">
+        <div class="submit-meta" id="submitMeta"></div>
+        <button type="submit" class="btn-submit" id="submitBtn">
+          <span class="btn-label">Add to Tracker</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+
+    </form>
+  </div>
+
+</div>
+<script src="popup.js"></script>
+</body>
 </html>
