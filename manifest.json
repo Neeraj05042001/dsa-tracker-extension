@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "DSA Tracker",
+  "name": "Memoize",
   "version": "1.0.0",
-  "description": "Auto-track your coding journey on LeetCode & Codeforces with instant problem logging",
+  "description": "Solve once. Master forever. Auto-capture LeetCode & Codeforces submissions with spaced repetition.",
 
   "permissions": [
     "storage",
@@ -23,7 +23,7 @@
 
   "action": {
     "default_popup": "popup.html",
-    "default_title": "DSA Tracker - Log Your Problems",
+    "default_title": "Memoize — Log Your Problem",
     "default_icon": {
       "16": "icons/icon16.png",
       "128": "icons/icon128.png"
